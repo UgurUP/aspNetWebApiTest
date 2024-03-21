@@ -35,6 +35,7 @@ namespace aspNetWebApiTest.Controllers
                     token_type = "Bearer",
                     access_token = token,
                     expires_at = expiresAt,
+                    test = "ok"
                 });
             }
             else
