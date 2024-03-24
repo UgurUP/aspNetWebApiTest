@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 using System;
@@ -9,6 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Numerics;
 using System.Security.Claims;
 using System.Text;
+
 
 namespace aspNetWebApiTest.Controllers
 {
@@ -21,7 +23,7 @@ namespace aspNetWebApiTest.Controllers
         private const string CLIENT_SECRET = "your_secret_key_here_your_secret_key_here_your_secret_key_here_your_secret_key_here";
         public static readonly SymmetricSecurityKey SigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(CLIENT_SECRET));
 
-
+        //Server=45.84.189.34
 
         [HttpPost("token")]
         public IActionResult GetToken([FromBody] TokenRequest request)
@@ -89,8 +91,8 @@ namespace aspNetWebApiTest.Controllers
                     //telefona OTP kodu gönder
 
                     //eðer phone var ise insert_update
-                    string connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\\Users\\Ugur\\source\\repos\\aspNetWebApiTest\\aspNetWebApiTest\\DbTest.accdb;";
-                    using (var connection = new OleDbConnection(connectionString))
+                    string connectionString = @"Server=45.84.189.34\MSSQLSERVER2017;Database=upsurget_pbdb;User Id=upsurget_pbdbuser;Password=Xf9f94b9?;TrustServerCertificate=true;"; 
+                    using (var connection = new SqlConnection(connectionString))
                     {
                         connection.Open();
                         //string sql = "INSERT INTO otpControl (phone, otp) VALUES (@Phone, @OtpCode)";
@@ -102,15 +104,16 @@ namespace aspNetWebApiTest.Controllers
                         //}
 
                         string selectSql = "SELECT COUNT(*) FROM otpControl WHERE phone = @Phone";
-                        using (var selectCommand = new OleDbCommand(selectSql, connection))
-                        {
-                            selectCommand.Parameters.AddWithValue("@Phone", request.phone);
+                        
+                        using (var selectCommand = new SqlCommand(selectSql, connection))
+                            {
+                                selectCommand.Parameters.AddWithValue("@Phone", request.phone);
                             int existingRecordsCount = (int)selectCommand.ExecuteScalar();
 
                             if (existingRecordsCount > 0)
                             {
-                                string updateSql = "UPDATE otpControl SET otp = @OtpCode WHERE phone = @Phone";
-                                using (var updateCommand = new OleDbCommand(updateSql, connection))
+                                string updateSql = "UPDATE otpControl SET otp = @OtpCode, lastModified = CURRENT_TIMESTAMP WHERE phone = @Phone";
+                                using (var updateCommand = new SqlCommand(updateSql, connection))
                                 {
                                     updateCommand.Parameters.AddWithValue("@Phone", request.phone);
                                     updateCommand.Parameters.AddWithValue("@OtpCode", otpCode);
@@ -119,8 +122,8 @@ namespace aspNetWebApiTest.Controllers
                             }
                             else
                             {
-                                string insertSql = "INSERT INTO otpControl (phone, otp) VALUES (@Phone, @OtpCode)";
-                                using (var insertCommand = new OleDbCommand(insertSql, connection))
+                                string insertSql = "INSERT INTO otpControl (phone, otp, lastModified) VALUES (@Phone, @OtpCode, CURRENT_TIMESTAMP)";
+                                using (var insertCommand = new SqlCommand(insertSql, connection))
                                 {
                                     insertCommand.Parameters.AddWithValue("@Phone", request.phone);
                                     insertCommand.Parameters.AddWithValue("@OtpCode", otpCode);
@@ -174,27 +177,28 @@ namespace aspNetWebApiTest.Controllers
                 {
                     string username = usernameClaim.Value;
 
-                    string connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\\Users\\Ugur\\source\\repos\\aspNetWebApiTest\\aspNetWebApiTest\\DbTest.accdb;";
-                    using (var connection = new OleDbConnection(connectionString))
+                    string connectionString = @"Server=45.84.189.34\MSSQLSERVER2017;Database=upsurget_pbdb;User Id=upsurget_pbdbuser;Password=Xf9f94b9?;TrustServerCertificate=true;";
+                    using (var connection = new SqlConnection(connectionString))
                     {
                         connection.Open();
 
                         string sql = "SELECT otp FROM otpControl WHERE phone = @Phone";
-                        using (var command = new OleDbCommand(sql, connection))
+                        using (var command = new SqlCommand(sql, connection))
                         {
                             command.Parameters.AddWithValue("@Phone", request.phone);
                             var otpCodeControl = command.ExecuteScalar();
 
                             if (otpCodeControl.ToString() == request.otp)
                             {
-                                connection.Close();
+                                
                                 var token = CreateToken(request.phone);
                                 var expiresAt = DateTime.UtcNow.AddMinutes(90);
                                 string sql1 = "SELECT COUNT(*) FROM customer WHERE phone = @Phone";
-                                using (var command1 = new OleDbCommand(sql1, connection))
+                                using (var command1 = new SqlCommand(sql1, connection))
                                 {
                                     command1.Parameters.AddWithValue("@Phone", request.phone);
                                     int existingRecordsCount = (int)command1.ExecuteScalar();
+                                    connection.Close();
                                     if (existingRecordsCount == 0)
                                     {
                                         return Ok(new
@@ -205,7 +209,8 @@ namespace aspNetWebApiTest.Controllers
                                             register = true
                                         });
                                     }
-                                    else {
+                                    else
+                                    {
                                         return Ok(new
                                         {
                                             token_type = "Bearer",
@@ -270,31 +275,35 @@ namespace aspNetWebApiTest.Controllers
                 var usernameClaim = identity.FindFirst(ClaimTypes.MobilePhone);
                 if (usernameClaim != null)
                 {
-                    string connectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\\Users\\Ugur\\source\\repos\\aspNetWebApiTest\\aspNetWebApiTest\\DbTest.accdb;";
+                    string connectionString = @"Server=45.84.189.34\MSSQLSERVER2017;Database=upsurget_pbdb;User Id=upsurget_pbdbuser;Password=Xf9f94b9?;TrustServerCertificate=true;";
                     string insertSql = "INSERT INTO customer (user, phone, mail, birthDate) VALUES (@user, @phone, @mail, @birthDate)";
-                    using (var connection = new OleDbConnection(connectionString))
+
+                    using (var connection = new SqlConnection(connectionString))
                     {
                         connection.Open();
                         string sql = "SELECT otp FROM otpControl WHERE phone = @Phone";
-                        using (var command = new OleDbCommand(sql, connection))
+
+                        using (var command = new SqlCommand(sql, connection))
                         {
                             command.Parameters.AddWithValue("@Phone", request.phone);
                             var otpCodeControl = command.ExecuteScalar();
 
-                            if (otpCodeControl.ToString() == request.otp.ToString())
+                            if (otpCodeControl != null && otpCodeControl.ToString() == request.otp.ToString())
                             {
-                                using (var insertCommand = new OleDbCommand(insertSql, connection))
+                                using (var insertCommand = new SqlCommand(insertSql, connection))
                                 {
                                     insertCommand.Parameters.AddWithValue("@user", request.name);
                                     insertCommand.Parameters.AddWithValue("@phone", request.phone);
                                     insertCommand.Parameters.AddWithValue("@mail", request.mail);
                                     insertCommand.Parameters.AddWithValue("@birthDate", request.birthDate);
                                     insertCommand.ExecuteNonQuery();
+                                    connection.Close();
                                     return Ok();
-                                }                      
+                                }
                             }
                             else
                             {
+                                connection.Close();
                                 return NotFound("OTP not found for the given phone number");
                             }
                         }
