@@ -303,7 +303,7 @@ namespace aspNetWebApiTest.Controllers
                             }
                             else
                             {
-                                connection.Close();
+                                connection.Close(); //
                                 return NotFound("OTP not found for the given phone number");
                             }
                         }
